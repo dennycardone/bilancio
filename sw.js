@@ -1,6 +1,6 @@
 // Service worker: rende l'app utilizzabile offline dopo la prima apertura.
 // Strategia "network first": se c'è rete prende la versione aggiornata, altrimenti usa la copia salvata.
-const CACHE = "bilancio-v1";
+const CACHE = "bilancio-v2";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {

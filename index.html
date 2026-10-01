@@ -1309,7 +1309,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) saveN
    ========================================================= */
 /* Offline + installazione su smartphone (solo quando servita via https, es. GitHub Pages) */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(() => {}));
 }
 
 state = load();
