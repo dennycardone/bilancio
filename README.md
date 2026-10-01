@@ -35,5 +35,5 @@ con **Importa backup** lo ripristini (anche su un altro dispositivo). **Esporta 
 | File | A cosa serve |
 |---|---|
 | `index.html` | L'intera app (HTML + CSS + JavaScript) |
-| `manifest.webmanifest`, `icon-192.png`, `icon-512.png` | Installazione sulla schermata Home |
+| `bilancio.webmanifest`, `icon-192.png`, `icon-512.png` | Installazione sulla schermata Home |
 | `sw.js` | Funzionamento offline |

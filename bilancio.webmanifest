@@ -1,0 +1,32 @@
+{
+  "id": "/bilancio/?app=bilancio-mensile-v2",
+  "name": "Bilancio Mensile",
+  "short_name": "Bilancio",
+  "description": "Bilancio mensile personale a contenitori — dati salvati solo sul tuo dispositivo",
+  "lang": "it",
+  "start_url": "/bilancio/?source=app",
+  "scope": "/bilancio/",
+  "display": "standalone",
+  "background_color": "#f4f5f8",
+  "theme_color": "#2f5bea",
+  "icons": [
+    {
+      "src": "/bilancio/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bilancio/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bilancio/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
