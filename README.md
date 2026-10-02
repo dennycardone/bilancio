@@ -9,11 +9,16 @@ Pensata per lo smartphone, funziona anche su desktop e **offline**.
 
 ## Come si usa
 
-1. Apri l'app: vedi il mese corrente e quanto c'è in ogni contenitore.
+1. Apri l'app: in alto c'è il **Saldo totale**, il portafoglio principale da cui distribuisci i soldi ai contenitori.
+   Toccalo per impostare il capitale iniziale e registrare entrate (es. stipendio) e uscite.
 2. Tocca un contenitore → inserisci **capitale iniziale**, **budget destinato**, entrate e uscite.
+   Il budget destinato e le entrate del contenitore vengono **scalati automaticamente dal saldo totale**
+   (togli la spunta "Prelevata dal saldo totale" per le entrate che arrivano da fuori, es. un rimborso).
 3. Oppure usa **＋ Movimento** per aggiungere velocemente una spesa o un'entrata.
 4. Il saldo si aggiorna da solo: `Saldo finale = Capitale iniziale + Entrate − Uscite`.
-5. A fine mese premi **↪ Riporta saldi al mese successivo**: i saldi finali diventano il capitale iniziale del mese dopo.
+5. A fine mese premi **↪ Riporta saldi al mese successivo**: il saldo totale e i saldi dei contenitori diventano il capitale iniziale del mese dopo.
+
+**Patrimonio complessivo** = saldo totale + tutti i contenitori. Gli spostamenti dal saldo totale ai contenitori non lo cambiano: contano solo le entrate e le uscite reali.
 6. In **Storico** trovi tutti i mesi; toccane uno per riaprirlo e modificarlo.
 
 ## Installarla sul telefono

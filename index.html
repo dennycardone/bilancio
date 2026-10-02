@@ -84,11 +84,22 @@ main{padding-top:6px}
 /* =========================================================
    KPI
    ========================================================= */
-.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
 .kpi{background:var(--surface);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow);min-width:0}
 .kpi .k-label{font-size:11.5px;color:var(--muted);line-height:1.25}
 .kpi .k-val{font-size:16px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kpi.hero{grid-column:1 / -1;order:-1;background:var(--text);color:var(--bg);padding:16px}
+.kpi.hero{grid-column:1 / -1;order:-1;background:var(--text);color:var(--bg);padding:16px;display:block;width:100%;text-align:left;font:inherit;cursor:pointer;transition:transform .1s}
+.kpi.hero:active{transform:scale(.99)}
+.kpi.hero .k-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kpi.hero .k-edit{font-size:12px;font-weight:600;background:rgba(127,127,127,.25);padding:4px 10px;border-radius:99px;white-space:nowrap}
+.kpi.hero .k-val.neg-hero{color:#ff8095}
+.cassa-row{background:var(--primary-soft)}
+.s-note{padding:10px 14px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);line-height:1.4}
+.f-hint{display:block;font-size:11.5px;color:var(--muted);font-weight:500}
+.check{display:flex;gap:12px;align-items:flex-start;background:var(--surface-2);border-radius:12px;padding:12px 14px;cursor:pointer}
+.check input{width:22px;height:22px;margin-top:1px;accent-color:var(--primary);flex:0 0 auto}
+.check span{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.check small{color:var(--muted);font-size:12px}
 .kpi.hero .k-label{color:inherit;opacity:.7}
 .kpi.hero .k-val{font-size:32px}
 .kpi.hero .k-formula{font-size:12px;opacity:.65;margin-top:4px}
@@ -291,8 +302,8 @@ footer.note{text-align:center;color:var(--muted);font-size:12px;margin:28px 0 8p
   .kpi{padding:14px}
   .kpi .k-label{font-size:12.5px}
   .kpi .k-val{font-size:21px}
-  .kpi.hero{grid-column:auto;order:0;padding:14px}
-  .kpi.hero .k-val{font-size:24px}
+  .kpi.hero{padding:18px 20px}
+  .kpi.hero .k-val{font-size:30px}
   .donut{flex-direction:row}
   .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .charts{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -377,7 +388,7 @@ footer.note{text-align:center;color:var(--muted);font-size:12px;margin:28px 0 8p
     <div class="charts">
       <div class="chart-card"><h3>Distribuzione del saldo</h3><div class="chart-box"><div class="svgchart" id="chDist"></div></div></div>
       <div class="chart-card"><h3>Entrate vs Uscite</h3><div class="chart-box"><div class="svgchart" id="chInOut"></div></div></div>
-      <div class="chart-card wide"><h3>Andamento del saldo complessivo</h3><div class="chart-box"><div class="svgchart" id="chTrend"></div></div></div>
+      <div class="chart-card wide"><h3>Andamento del patrimonio complessivo</h3><div class="chart-box"><div class="svgchart" id="chTrend"></div></div></div>
     </div>
 
     <div class="section-title">Fine mese</div>
@@ -477,14 +488,21 @@ const containerName = c => (c.name || "").trim() || "Senza nome";
    {
      version, theme, demo,
      containers: [{id, name}],
-     months: { "YYYY-MM": { items: { [containerId]: {capitale, budget, entrate:[], uscite:[]} } } },
+     months: { "YYYY-MM": { cassa: {capitale, entrate:[], uscite:[]}, items: { [containerId]: {capitale, budget, entrate:[], uscite:[]} } } },
      current: "YYYY-MM"
    }
-   Voce: {id, desc, importo, nota}
+   Voce: {id, desc, importo, nota, fromCassa?}
+   "cassa" = SALDO TOTALE: il portafoglio principale. Il budget destinato e le entrate
+   dei contenitori (salvo fromCassa === false) vengono scalati da qui.
    ========================================================= */
 let state;
 
 function blankItem(){ return { capitale: 0, budget: 0, entrate: [], uscite: [] }; }
+const CASSA = "__cassa__";
+const CASSA_NAME = "Saldo totale";
+const CASSA_COLOR = "#64748b";
+function boxOf(m, id){ return id === CASSA ? m.cassa : m.items[id]; }
+function boxName(id){ if (id === CASSA) return CASSA_NAME; const c = state.containers.find(x => x.id === id); return c ? containerName(c) : "—"; }
 
 function demoState(){
   const cur = monthKey(new Date());
@@ -501,9 +519,10 @@ function demoState(){
   C.forEach(c => items[c.id] = blankItem());
   Object.assign(items["spese-fisse"], { capitale: 500, budget: 1000, uscite: [v("Affitto", 600), v("Bollette luce e gas", 140, "Bimestrale"), v("Internet", 30)] });
   Object.assign(items["divertimento"], { capitale: 100, budget: 200, uscite: [v("Cena", 40), v("Cinema", 20), v("Acquisto", 35)] });
-  Object.assign(items["risparmi"], { capitale: 1000, budget: 500, entrate: [v("Rimborso", 50)], uscite: [v("Trasferimento conto deposito", 200)] });
+  Object.assign(items["risparmi"], { capitale: 1000, budget: 500, entrate: [{ ...v("Rimborso", 50, "Arrivato da fuori"), fromCassa: false }], uscite: [v("Trasferimento conto deposito", 200)] });
   Object.assign(items["sara"], { capitale: 200, budget: 100, uscite: [v("Regalo", 30, "Compleanno")] });
-  return { version: 1, theme: null, demo: true, containers: C, months: { [cur]: { items } }, current: cur };
+  const cassa = { capitale: 300, budget: 0, entrate: [v("Stipendio", 1800)], uscite: [] };
+  return { version: 2, theme: null, demo: true, containers: C, months: { [cur]: { cassa, items } }, current: cur };
 }
 
 function load(){
@@ -536,6 +555,7 @@ function getMonth(key, create = false){
     m = { items: {} };
     if (create) state.months[key] = m;
   }
+  if (!m.cassa) m.cassa = blankItem();
   state.containers.forEach(c => { if (!m.items[c.id]) m.items[c.id] = blankItem(); });
   return m;
 }
@@ -550,23 +570,30 @@ function prevMonthWithData(key){ return sortedMonthKeys().filter(k => k < key).p
 function calcItem(it){
   const capitale = num(it.capitale), budget = num(it.budget);
   const extra = sum(it.entrate, e => num(e.importo));
+  const esterne = sum(it.entrate.filter(e => e.fromCassa === false), e => num(e.importo));
+  const daCassa = round2(budget + extra - esterne);     // quanto è stato prelevato dal saldo totale
   const entrate = round2(budget + extra);
   const uscite = sum(it.uscite, e => num(e.importo));
   const saldo = round2(capitale + entrate - uscite);
   const disponibile = round2(capitale + budget);      // Budget disponibile
   const residuo = round2(disponibile - uscite);        // Budget destinato + capitale iniziale - uscite
   const pct = disponibile > 0 ? uscite / disponibile * 100 : (uscite > 0 ? 100 : 0);
-  return { capitale, budget, extra, entrate, uscite, saldo, disponibile, residuo, pct, over: uscite > disponibile && uscite > 0 };
+  return { capitale, budget, extra, esterne, daCassa, entrate, uscite, saldo, disponibile, residuo, pct, over: uscite > disponibile && uscite > 0 };
 }
 function calcMonth(key){
   const m = getMonth(key);
   const rows = state.containers.map(c => ({ c, ...calcItem(m.items[c.id]) }));
+  const ci = calcItem(m.cassa);
+  const distribuito = sum(rows, r => r.daCassa);
+  const cassa = { capitale: ci.capitale, entrate: ci.extra, uscite: ci.uscite, distribuito, saldo: round2(ci.capitale + ci.extra - ci.uscite - distribuito) };
+  const contenitori = sum(rows, r => r.saldo);
+  // Totali "reali": i trasferimenti saldo totale → contenitori si annullano
   return {
-    rows,
-    capitale: sum(rows, r => r.capitale),
-    entrate: sum(rows, r => r.entrate),
-    uscite: sum(rows, r => r.uscite),
-    saldo: sum(rows, r => r.saldo)
+    rows, cassa, contenitori,
+    capitale: round2(cassa.capitale + sum(rows, r => r.capitale)),
+    entrate: round2(cassa.entrate + sum(rows, r => r.esterne)),
+    uscite: round2(cassa.uscite + sum(rows, r => r.uscite)),
+    saldo: round2(cassa.saldo + contenitori)            // patrimonio complessivo
   };
 }
 
@@ -591,7 +618,7 @@ function renderAll(){
 function renderBanners(){
   const out = [];
   if (state.demo) {
-    out.push(`<div class="banner"><div>🧪</div><div class="b-body"><b>Questi sono dati DEMO di esempio.</b> Non sono dati reali: modificali o eliminali liberamente.
+    out.push(`<div class="banner"><div>🧪</div><div class="b-body"><b>Questi sono dati DEMO di esempio.</b> Non sono dati reali: modificali o eliminali liberamente. Tocca il riquadro scuro “Saldo totale” per inserire stipendio e capitale.
       <div class="b-actions"><button class="btn sm primary" data-action="clear-demo">Inizia da zero</button><button class="btn sm" data-action="keep-demo">Tieni e modifica</button></div></div></div>`);
   }
   if (!monthExists(state.current)) {
@@ -601,16 +628,26 @@ function renderBanners(){
       <div class="b-actions">${prev ? `<button class="btn sm primary" data-action="carry-into-current">↪ Riporta saldi di ${esc(MESI[+prev.split("-")[1]-1])}</button>` : ""}
       <button class="btn sm" data-action="create-blank">Crea mese vuoto</button></div></div></div>`);
   }
+  if (monthExists(state.current)) {
+    const t = calcMonth(state.current);
+    if (t.cassa.saldo < 0) out.push(`<div class="banner warn"><div>⚠️</div><div class="b-body"><b>Il saldo totale è negativo (${eur(t.cassa.saldo)}).</b> Hai distribuito ai contenitori più di quanto c'è: imposta il capitale iniziale del saldo totale o aggiungi un'entrata (es. stipendio).
+      <div class="b-actions"><button class="btn sm primary" data-action="open-container" data-id="${CASSA}">Apri saldo totale</button></div></div></div>`);
+  }
   $("#banners").innerHTML = out.join("");
 }
 
 function renderKpis(){
   const t = calcMonth(state.current);
   $("#kpis").innerHTML = `
-    <div class="kpi"><div class="k-label">💰 Patrimonio nei contenitori<br><small>a inizio mese</small></div><div class="k-val num">${eur(t.capitale)}</div></div>
-    <div class="kpi"><div class="k-label">📥 Entrate<br><small>del mese</small></div><div class="k-val num pos">${eur(t.entrate)}</div></div>
-    <div class="kpi"><div class="k-label">📤 Uscite<br><small>del mese</small></div><div class="k-val num neg">${eur(t.uscite)}</div></div>
-    <div class="kpi hero"><div class="k-label">💵 Saldo disponibile · totale nei contenitori</div><div class="k-val num">${eur(t.saldo)}</div><div class="k-formula num">${eur(t.capitale)} + ${eur(t.entrate)} − ${eur(t.uscite)}</div></div>`;
+    <button class="kpi hero" data-action="open-container" data-id="${CASSA}">
+      <div class="k-top"><div class="k-label">💵 Saldo totale · da distribuire</div><span class="k-edit">Modifica ›</span></div>
+      <div class="k-val num ${t.cassa.saldo < 0 ? "neg-hero" : ""}">${eur(t.cassa.saldo)}</div>
+      <div class="k-formula num">${eur(t.cassa.capitale)} + ${eur(t.cassa.entrate)} entrate − ${eur(t.cassa.uscite)} uscite − ${eur(t.cassa.distribuito)} ai contenitori</div>
+    </button>
+    <div class="kpi"><div class="k-label">💰 Patrimonio complessivo</div><div class="k-val num">${eur(t.saldo)}</div></div>
+    <div class="kpi"><div class="k-label">📦 Nei contenitori</div><div class="k-val num">${eur(t.contenitori)}</div></div>
+    <div class="kpi"><div class="k-label">📥 Entrate del mese</div><div class="k-val num pos">${eur(t.entrate)}</div></div>
+    <div class="kpi"><div class="k-label">📤 Uscite del mese</div><div class="k-val num neg">${eur(t.uscite)}</div></div>`;
 }
 
 function progressHtml(r){
@@ -642,8 +679,10 @@ function renderSummary(){
   const t = calcMonth(state.current);
   $("#summary").innerHTML = `
     <div class="s-row head"><div>Contenitore</div><div class="hide-sm">Capitale</div><div class="hide-sm">Entrate</div><div>Uscite</div><div>Saldo</div></div>
+    <div class="s-row num cassa-row"><div class="s-name">💵 ${CASSA_NAME}</div><div class="hide-sm">${eur(t.cassa.capitale)}</div><div class="hide-sm">${eur(t.cassa.entrate)}</div><div>${eur(round2(t.cassa.uscite + t.cassa.distribuito))}</div><div class="${signCls(t.cassa.saldo)}"><b>${eur(t.cassa.saldo)}</b></div></div>
     ${t.rows.map(r => `<div class="s-row num"><div class="s-name">${esc(containerName(r.c))}</div><div class="hide-sm">${eur(r.capitale)}</div><div class="hide-sm">${eur(r.entrate)}</div><div>${eur(r.uscite)}</div><div class="${signCls(r.saldo)}"><b>${eur(r.saldo)}</b></div></div>`).join("")}
-    <div class="s-row total num"><div>Totale</div><div class="hide-sm">${eur(t.capitale)}</div><div class="hide-sm">${eur(t.entrate)}</div><div>${eur(t.uscite)}</div><div class="${signCls(t.saldo)}">${eur(t.saldo)}</div></div>`;
+    <div class="s-row total num"><div>Patrimonio</div><div class="hide-sm">${eur(t.capitale)}</div><div class="hide-sm">${eur(t.entrate)}</div><div>${eur(t.uscite)}</div><div class="${signCls(t.saldo)}">${eur(t.saldo)}</div></div>
+    <div class="s-note">Le uscite del saldo totale includono i ${eur(t.cassa.distribuito)} distribuiti ai contenitori. Nel patrimonio questi spostamenti interni non contano: restano solo entrate e uscite reali.</div>`;
 }
 
 function renderHistory(){
@@ -656,9 +695,9 @@ function renderHistory(){
       <div class="h-grid num">
         <div><span>Entrate</span><b class="pos">${eur(t.entrate)}</b></div>
         <div><span>Uscite</span><b class="neg">${eur(t.uscite)}</b></div>
-        <div><span>Capitale iniziale</span><b>${eur(t.capitale)}</b></div>
+        <div><span>Saldo totale</span><b class="${signCls(t.cassa.saldo)}">${eur(t.cassa.saldo)}</b></div>
       </div>
-      <div class="muted" style="font-size:12px;margin-top:6px">Saldo finale = totale presente nei contenitori a fine mese</div>
+      <div class="muted" style="font-size:12px;margin-top:6px">Patrimonio a fine mese = saldo totale ${eur(t.cassa.saldo)} + contenitori ${eur(t.contenitori)}</div>
     </button>`;
   }).join("");
 }
@@ -773,13 +812,15 @@ function lineChart(el, labels, values, curIndex){
     const p = pts[curIndex], anchor = p[0] > W - 70 ? "end" : p[0] < L + 50 ? "start" : "middle";
     svg += `<text x="${p[0]}" y="${Math.max(12, p[1] - 12)}" text-anchor="${anchor}" style="fill:var(--text);font-size:12px;font-weight:700">${esc(eur(values[curIndex]))}</text>`;
   }
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Andamento del saldo complessivo">${svg}</svg>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Andamento del patrimonio complessivo">${svg}</svg>`;
 }
 
 function renderCharts(){
   if (currentView !== "dashboard") return;
   const t = calcMonth(state.current);
-  donutChart($("#chDist"), t.rows.filter(r => r.saldo > 0).map(r => ({ label: containerName(r.c), value: r.saldo, color: PALETTE[state.containers.indexOf(r.c) % PALETTE.length] })));
+  const slices = (t.cassa.saldo > 0 ? [{ label: CASSA_NAME, value: t.cassa.saldo, color: CASSA_COLOR }] : [])
+    .concat(t.rows.filter(r => r.saldo > 0).map(r => ({ label: containerName(r.c), value: r.saldo, color: PALETTE[state.containers.indexOf(r.c) % PALETTE.length] })));
+  donutChart($("#chDist"), slices);
 
   let keys = sortedMonthKeys().filter(k => k < state.current).slice(-5).concat(state.current);
   const mt = keys.map(k => calcMonth(k));
@@ -839,6 +880,7 @@ function openContainer(id){
   renderContainerSheet(true);
 }
 function renderContainerSheet(first = false){
+  if (openSheet.id === CASSA) return renderCassaSheet(first);
   const c = state.containers.find(x => x.id === openSheet.id);
   if (!c) { closeModal(); return; }
   const it = getMonth(state.current).items[c.id];
@@ -849,7 +891,7 @@ function renderContainerSheet(first = false){
     const arr = it[kind];
     if (!arr.length) return `<div class="empty">${kind === "entrate" ? "Nessuna altra entrata." : "Nessuna uscita registrata."}</div>`;
     return arr.map(v => `<div class="item">
-      <div class="i-main"><div class="i-desc">${esc(v.desc || "—")}</div>${v.nota ? `<div class="i-note">${esc(v.nota)}</div>` : ""}</div>
+      <div class="i-main"><div class="i-desc">${esc(v.desc || "—")}</div><div class="i-note">${kind === "entrate" ? (v.fromCassa === false ? "Entrata esterna" : "Dal saldo totale") : ""}${kind === "entrate" && v.nota ? " · " : ""}${esc(v.nota || "")}</div></div>
       <div class="i-amt num ${kind === "entrate" ? "pos" : "neg"}">${kind === "entrate" ? "+" : "−"}${eur(v.importo)}</div>
       <button class="icon-btn" data-action="edit-item" data-kind="${kind}" data-id="${v.id}" aria-label="Modifica">✎</button>
       <button class="icon-btn" data-action="delete-item" data-kind="${kind}" data-id="${v.id}" aria-label="Elimina">✕</button>
@@ -884,7 +926,7 @@ function renderContainerSheet(first = false){
 
       <div class="panel">
         <div class="panel-head"><h4>📥 Entrate</h4></div>
-        <div class="field-row"><label for="fBud">Budget destinato</label>
+        <div class="field-row"><label for="fBud">Budget destinato<small class="f-hint">Prelevato dal saldo totale</small></label>
           <div class="money"><span>€</span><input id="fBud" type="number" inputmode="decimal" step="0.01" min="0" data-action="field" data-field="budget" value="${it.budget || ""}" placeholder="0,00"></div></div>
         ${listHtml("entrate")}
         <div class="add-row"><button class="btn sm ghost block" data-action="add-item" data-kind="entrate">＋ Aggiungi entrata</button></div>
@@ -900,8 +942,76 @@ function renderContainerSheet(first = false){
     </div>`;
   if (!first) sheet.scrollTop = scroll;
 }
+function itemsListHtml(arr, kind, emptyMsg){
+  if (!arr.length) return `<div class="empty">${emptyMsg}</div>`;
+  return arr.map(v => `<div class="item">
+      <div class="i-main"><div class="i-desc">${esc(v.desc || "—")}</div>${v.nota ? `<div class="i-note">${esc(v.nota)}</div>` : ""}</div>
+      <div class="i-amt num ${kind === "entrate" ? "pos" : "neg"}">${kind === "entrate" ? "+" : "−"}${eur(v.importo)}</div>
+      <button class="icon-btn" data-action="edit-item" data-kind="${kind}" data-id="${v.id}" aria-label="Modifica">✎</button>
+      <button class="icon-btn" data-action="delete-item" data-kind="${kind}" data-id="${v.id}" aria-label="Elimina">✕</button>
+    </div>`).join("");
+}
+function cassaFormula(k){ return `${eur(k.capitale)} + ${eur(k.entrate)} − ${eur(k.uscite)} − ${eur(k.distribuito)} distribuiti`; }
+function renderCassaSheet(first = false){
+  const m = getMonth(state.current), it = m.cassa, t = calcMonth(state.current), k = t.cassa;
+  const sheet = $("#sheet"), scroll = sheet.scrollTop;
+  const dist = t.rows.filter(r => r.daCassa > 0);
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>💵 ${CASSA_NAME}</h2><button class="icon-btn" data-action="close" aria-label="Chiudi">✕</button></div>
+    <div class="sheet-body">
+      <div class="muted" style="font-size:13px;margin:-4px 0 10px 2px">${esc(monthLabel(state.current))} · il portafoglio da cui distribuisci ai contenitori</div>
+      <div class="saldo-hero">
+        <div class="sh-label">Saldo totale da distribuire</div>
+        <div class="sh-val num ${signCls(k.saldo)}" id="shSaldo">${eur(k.saldo)}</div>
+        <div class="sh-formula num" id="shFormula">${cassaFormula(k)}</div>
+        <div class="budget-box num" id="shBudget" style="grid-template-columns:repeat(2,1fr)">
+          <div><span>Patrimonio complessivo</span><b>${eur(t.saldo)}</b></div>
+          <div><span>Di cui nei contenitori</span><b>${eur(t.contenitori)}</b></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h4>Capitale iniziale</h4></div>
+        <div class="field-row"><label for="fCap">Saldo totale a inizio mese</label>
+          <div class="money"><span>€</span><input id="fCap" type="number" inputmode="decimal" step="0.01" data-action="field" data-field="capitale" value="${it.capitale || ""}" placeholder="0,00"></div></div>
+        <div style="height:6px"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h4>📥 Entrate</h4></div>
+        ${itemsListHtml(it.entrate, "entrate", "Nessuna entrata. Aggiungi ad esempio lo stipendio.")}
+        <div class="add-row"><button class="btn sm ghost block" data-action="add-item" data-kind="entrate">＋ Aggiungi entrata</button></div>
+        <div class="panel-total num"><span>Totale entrate</span><span class="pos">${eur(k.entrate)}</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h4>📤 Uscite</h4></div>
+        ${itemsListHtml(it.uscite, "uscite", "Nessuna uscita diretta dal saldo totale.")}
+        <div class="add-row"><button class="btn sm ghost block" data-action="add-item" data-kind="uscite">＋ Aggiungi uscita</button></div>
+        <div class="panel-total num"><span>Totale uscite</span><span class="neg">${eur(k.uscite)}</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h4>📦 Distribuito ai contenitori</h4></div>
+        ${dist.length ? dist.map(r => `<div class="item" style="cursor:pointer" data-action="open-container" data-id="${r.c.id}">
+          <div class="i-main"><div class="i-desc">${esc(containerName(r.c))}</div><div class="i-note">Budget ${eur(r.budget)}${r.daCassa > r.budget ? ` + altre entrate ${eur(round2(r.daCassa - r.budget))}` : ""}</div></div>
+          <div class="i-amt num neg">−${eur(r.daCassa)}</div><span class="muted" style="padding:0 8px">›</span></div>`).join("")
+          : `<div class="empty">Nessun importo distribuito. Imposta il budget destinato nei contenitori.</div>`}
+        <div class="panel-total num"><span>Totale distribuito</span><span class="neg">${eur(k.distribuito)}</span></div>
+      </div>
+    </div>`;
+  if (!first) sheet.scrollTop = scroll;
+}
+
 /* Aggiorna solo i numeri (mentre si digita nei campi, senza perdere il focus) */
 function refreshContainerNumbers(){
+  if (openSheet.id === CASSA) {
+    const t = calcMonth(state.current), k = t.cassa, s = $("#shSaldo"); if (!s) return;
+    s.textContent = eur(k.saldo); s.className = "sh-val num " + signCls(k.saldo);
+    $("#shFormula").textContent = cassaFormula(k);
+    $("#shBudget").innerHTML = `<div><span>Patrimonio complessivo</span><b>${eur(t.saldo)}</b></div><div><span>Di cui nei contenitori</span><b>${eur(t.contenitori)}</b></div>`;
+    return;
+  }
   const it = getMonth(state.current).items[openSheet.id];
   const r = calcItem(it);
   const s = $("#shSaldo"); if (!s) return;
@@ -920,10 +1030,10 @@ function refreshOpenSheet(){
 /* ---------- Form voce (aggiungi / modifica) ---------- */
 function openItemForm({ containerId, kind, itemId = null, allowPick = false }){
   const m = getMonth(state.current);
-  const existing = itemId ? m.items[containerId][kind].find(v => v.id === itemId) : null;
+  const existing = itemId ? boxOf(m, containerId)[kind].find(v => v.id === itemId) : null;
   const back = openSheet && openSheet.type === "container" ? { ...openSheet } : null;
   openSheet = { type: "form", back };
-  const opts = state.containers.map(c => `<option value="${c.id}" ${c.id === containerId ? "selected" : ""}>${esc(containerName(c))}</option>`).join("");
+  const opts = `<option value="${CASSA}" ${containerId === CASSA ? "selected" : ""}>💵 ${CASSA_NAME}</option>` + state.containers.map(c => `<option value="${c.id}" ${c.id === containerId ? "selected" : ""}>${esc(containerName(c))}</option>`).join("");
   mountModal(`<div class="sheet" role="dialog" aria-modal="true" style="max-width:480px">
     <div class="sheet-head"><h2>${existing ? "Modifica" : "Nuova"} ${kind === "entrate" ? "entrata" : "uscita"}</h2><button class="icon-btn" data-action="form-cancel" aria-label="Chiudi">✕</button></div>
     <form class="sheet-body form-grid" id="itemForm" autocomplete="off">
@@ -931,6 +1041,7 @@ function openItemForm({ containerId, kind, itemId = null, allowPick = false }){
       <div><label for="iAmt">Importo (€)</label><input class="input amount num" id="iAmt" type="number" inputmode="decimal" step="0.01" min="0" required value="${existing ? existing.importo : ""}" placeholder="0,00"></div>
       <div><label for="iDesc">Descrizione</label><input class="input" id="iDesc" maxlength="60" required value="${esc(existing ? existing.desc : "")}" placeholder="${kind === "entrate" ? "es. Rimborso, Extra…" : "es. Cena, Cinema, Spesa…"}"></div>
       ${allowPick || existing ? `<div><label for="iCont">Contenitore</label><select class="input" id="iCont" ${existing ? "disabled" : ""}>${opts}</select></div>` : ""}
+      <label class="check" id="iFromWrap"><input type="checkbox" id="iFrom" ${existing && existing.fromCassa === false ? "" : "checked"}><span><b>Prelevata dal saldo totale</b><small>Togli la spunta se i soldi arrivano da fuori (es. un rimborso)</small></span></label>
       <div><label for="iNote">Nota (facoltativa)</label><input class="input" id="iNote" maxlength="120" value="${esc(existing ? existing.nota : "")}" placeholder="—"></div>
       <div class="d-actions" style="display:flex;gap:8px;margin-top:4px">
         ${existing ? `<button type="button" class="btn danger" data-action="form-delete" style="flex:0 0 auto">🗑</button>` : ""}
@@ -939,13 +1050,20 @@ function openItemForm({ containerId, kind, itemId = null, allowPick = false }){
       </div>
     </form></div>`);
   let curKind = kind;
+  const curCont = () => ($("#iCont") && !existing ? $("#iCont").value : containerId);
+  const syncFrom = () => $("#iFromWrap").classList.toggle("hidden", !(curKind === "entrate" && curCont() !== CASSA));
+  syncFrom();
+  if ($("#iCont")) $("#iCont").addEventListener("change", syncFrom);
   const seg = $("#kindSeg");
   if (seg) seg.addEventListener("click", e => {
     const b = e.target.closest("[data-k]"); if (!b) return;
     curKind = b.dataset.k;
     seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
     document.querySelector(".sheet-head h2").textContent = "Nuova " + (curKind === "entrate" ? "entrata" : "uscita");
-    $("#iDesc").placeholder = curKind === "entrate" ? "es. Rimborso, Extra…" : "es. Cena, Cinema, Spesa…";
+    $("#iDesc").placeholder = curKind === "entrate" ? "es. Stipendio, Rimborso, Extra…" : "es. Cena, Cinema, Spesa…";
+    // un'entrata veloce di solito va nel saldo totale (es. stipendio)
+    if ($("#iCont") && !existing) $("#iCont").value = curKind === "entrate" ? CASSA : (state.containers[0] ? state.containers[0].id : CASSA);
+    syncFrom();
   });
   openSheet.ctx = { containerId, itemId, getKind: () => curKind };
   setTimeout(() => $("#iAmt").focus(), 60);
@@ -957,10 +1075,11 @@ function openItemForm({ containerId, kind, itemId = null, allowPick = false }){
     const nota = $("#iNote").value.trim();
     if (!desc) { $("#iDesc").focus(); return toast("Inserisci una descrizione"); }
     if (importo <= 0) { $("#iAmt").focus(); return toast("Inserisci un importo maggiore di zero"); }
-    const cid = $("#iCont") && !existing ? $("#iCont").value : containerId;
+    const cid = curCont();
     const mm = editableMonth();
-    if (existing) Object.assign(existing, { desc, importo, nota });
-    else mm.items[cid][curKind].push({ id: uid(), desc, importo, nota });
+    const extra = curKind === "entrate" && cid !== CASSA ? { fromCassa: $("#iFrom").checked } : {};
+    if (existing) Object.assign(existing, { desc, importo, nota }, extra);
+    else boxOf(mm, cid)[curKind].push({ id: uid(), desc, importo, nota, ...extra });
     markEdited();
     toast(existing ? "Voce aggiornata" : (curKind === "entrate" ? "Entrata aggiunta" : "Uscita aggiunta"));
     returnFromForm(back && !existing && cid !== back.id ? null : back);
@@ -974,7 +1093,7 @@ function returnFromForm(back){
 /* ---------- Ricerca ---------- */
 function openSearch(){
   openSheet = { type: "search" };
-  const opts = `<option value="">Tutti i contenitori</option>` + state.containers.map(c => `<option value="${c.id}">${esc(containerName(c))}</option>`).join("");
+  const opts = `<option value="">Tutti i contenitori</option><option value="${CASSA}">💵 ${CASSA_NAME}</option>` + state.containers.map(c => `<option value="${c.id}">${esc(containerName(c))}</option>`).join("");
   mountModal(`<div class="sheet" role="dialog" aria-modal="true">
     <div class="sheet-head"><h2>Cerca in ${esc(monthLabel(state.current))}</h2><button class="icon-btn" data-action="close" aria-label="Chiudi">✕</button></div>
     <div class="sheet-body">
@@ -994,12 +1113,12 @@ function runSearch(){
   const q = $("#sQ").value.trim().toLowerCase(), type = $("#sType").value, cont = $("#sCont").value;
   const m = getMonth(state.current);
   const res = [];
-  state.containers.forEach(c => {
+  [{ id: CASSA }].concat(state.containers).forEach(c => {
     if (cont && c.id !== cont) return;
-    const it = m.items[c.id];
+    const it = boxOf(m, c.id);
     ["entrate","uscite"].forEach(k => {
       if (type && type !== k) return;
-      if (k === "entrate" && it.budget > 0 && (!q || "budget destinato".includes(q)))
+      if (k === "entrate" && c.id !== CASSA && it.budget > 0 && (!q || "budget destinato".includes(q)))
         res.push({ c, k, v: { id: null, desc: "Budget destinato", importo: it.budget, nota: "" } });
       it[k].forEach(v => { if (!q || (v.desc + " " + (v.nota || "")).toLowerCase().includes(q)) res.push({ c, k, v }); });
     });
@@ -1007,7 +1126,7 @@ function runSearch(){
   const tot = sum(res, x => x.k === "entrate" ? x.v.importo : -x.v.importo);
   box.innerHTML = res.length ? res.map(x => `
     <div class="item" style="cursor:pointer" data-action="${x.v.id ? "search-open" : "open-container"}" data-cid="${x.c.id}" data-id="${x.v.id ? x.v.id : x.c.id}" data-kind="${x.k}">
-      <div class="i-main"><div class="i-desc">${esc(x.v.desc)}</div><div class="i-note">${esc(containerName(x.c))}${x.v.nota ? " · " + esc(x.v.nota) : ""}</div></div>
+      <div class="i-main"><div class="i-desc">${esc(x.v.desc)}</div><div class="i-note">${esc(boxName(x.c.id))}${x.v.nota ? " · " + esc(x.v.nota) : ""}</div></div>
       <div class="i-amt num ${x.k === "entrate" ? "pos" : "neg"}">${x.k === "entrate" ? "+" : "−"}${eur(x.v.importo)}</div>
     </div>`).join("") + `<div class="panel-total num"><span>${res.length} ${res.length === 1 ? "voce" : "voci"}</span><span class="${signCls(tot)}">Netto ${eur(tot)}</span></div>`
     : `<div class="empty" style="padding:16px">Nessun risultato.</div>`;
@@ -1038,13 +1157,14 @@ function carryBalances(from, to){
   const src = calcMonth(from);
   const dst = getMonth(to, true);
   src.rows.forEach(r => { dst.items[r.c.id].capitale = r.saldo; });
+  dst.cassa.capitale = src.cassa.saldo;
 }
 
 async function carryForward(){
   const from = state.current;
   const to = addMonths(from, 1);
   if (monthExists(to)) {
-    const ok = await confirmBox(`${monthLabel(to)} esiste già`, "Vuoi aggiornare il capitale iniziale di ogni contenitore con i saldi finali di questo mese? Entrate e uscite già inserite restano invariate.", "Aggiorna", false);
+    const ok = await confirmBox(`${monthLabel(to)} esiste già`, "Vuoi aggiornare il capitale iniziale del saldo totale e di ogni contenitore con i saldi finali di questo mese? Entrate e uscite già inserite restano invariate.", "Aggiorna", false);
     if (!ok) return;
   }
   getMonth(from, true);
@@ -1074,15 +1194,21 @@ function exportJSON(){
 function exportCSV(){
   const rows = [["Mese","Contenitore","Tipo","Descrizione","Importo","Nota"]];
   sortedMonthKeys().forEach(k => {
-    const m = getMonth(k);
+    const m = getMonth(k), t = calcMonth(k), L = monthLabel(k);
+    rows.push([L, CASSA_NAME, "Capitale iniziale", "Capitale iniziale", t.cassa.capitale, ""]);
+    m.cassa.entrate.forEach(v => rows.push([L, CASSA_NAME, "Entrata", v.desc, num(v.importo), v.nota || ""]));
+    m.cassa.uscite.forEach(v => rows.push([L, CASSA_NAME, "Uscita", v.desc, -num(v.importo), v.nota || ""]));
+    rows.push([L, CASSA_NAME, "Distribuito ai contenitori", "Distribuito ai contenitori", -t.cassa.distribuito, ""]);
+    rows.push([L, CASSA_NAME, "Saldo finale", "Saldo finale", t.cassa.saldo, ""]);
     state.containers.forEach(c => {
       const it = m.items[c.id], n = containerName(c), r = calcItem(it);
       rows.push([monthLabel(k), n, "Capitale iniziale", "Capitale iniziale", r.capitale, ""]);
-      rows.push([monthLabel(k), n, "Entrata", "Budget destinato", r.budget, ""]);
-      it.entrate.forEach(v => rows.push([monthLabel(k), n, "Entrata", v.desc, num(v.importo), v.nota || ""]));
+      rows.push([monthLabel(k), n, "Entrata dal saldo totale", "Budget destinato", r.budget, ""]);
+      it.entrate.forEach(v => rows.push([monthLabel(k), n, v.fromCassa === false ? "Entrata esterna" : "Entrata dal saldo totale", v.desc, num(v.importo), v.nota || ""]));
       it.uscite.forEach(v => rows.push([monthLabel(k), n, "Uscita", v.desc, -num(v.importo), v.nota || ""]));
       rows.push([monthLabel(k), n, "Saldo finale", "Saldo finale", r.saldo, ""]);
     });
+    rows.push([L, "PATRIMONIO", "Saldo finale", "Patrimonio complessivo", t.saldo, ""]);
   });
   const cell = v => typeof v === "number" ? String(v).replace(".", ",") : `"${String(v).replace(/"/g, '""')}"`;
   const csv = "﻿" + rows.map(r => r.map(cell).join(";")).join("\r\n");
@@ -1115,7 +1241,24 @@ function importJSON(file){
 function printMonth(){
   const t = calcMonth(state.current);
   const line = (a, b, cls = "") => `<div class="pr-line ${cls}"><span>${esc(a)}</span><span>${b}</span></div>`;
-  const boxes = t.rows.map(r => {
+  const mc = getMonth(state.current).cassa;
+  const cassaBox = `<div class="pr-box">
+      <div class="pr-title">${CASSA_NAME}</div>
+      <div class="pr-cols">
+        <div class="pr-col"><h5>Entrate</h5>
+          ${line("Capitale iniziale", eur(t.cassa.capitale))}
+          ${mc.entrate.map(v => line(v.desc, eur(v.importo))).join("")}
+          ${line("Totale entrate", eur(round2(t.cassa.capitale + t.cassa.entrate)), "tot")}
+        </div>
+        <div class="pr-col"><h5>Uscite</h5>
+          ${mc.uscite.map(v => line(v.desc, eur(v.importo))).join("")}
+          ${line("Ai contenitori", eur(t.cassa.distribuito))}
+          ${line("Totale uscite", eur(round2(t.cassa.uscite + t.cassa.distribuito)), "tot")}
+        </div>
+      </div>
+      <div class="pr-saldo">SALDO FINALE ${eur(t.cassa.saldo)}</div>
+    </div>`;
+  const boxes = cassaBox + t.rows.map(r => {
     const it = getMonth(state.current).items[r.c.id];
     return `<div class="pr-box">
       <div class="pr-title">${esc(containerName(r.c))}</div>
@@ -1123,8 +1266,8 @@ function printMonth(){
         <div class="pr-col"><h5>Entrate</h5>
           ${line("Capitale iniziale", eur(r.capitale))}
           ${line("Budget destinato", eur(r.budget))}
-          ${it.entrate.map(v => line(v.desc, eur(v.importo))).join("")}
-          ${line("Totale entrate", eur(r.entrate), "tot")}
+          ${it.entrate.map(v => line(v.desc + (v.fromCassa === false ? " (est.)" : ""), eur(v.importo))).join("")}
+          ${line("Totale entrate", eur(round2(r.capitale + r.entrate)), "tot")}
         </div>
         <div class="pr-col"><h5>Uscite</h5>
           ${it.uscite.map(v => line(v.desc, eur(v.importo))).join("") || `<div class="pr-line"><span>—</span><span></span></div>`}
@@ -1140,12 +1283,13 @@ function printMonth(){
     <div class="pr-sum">
       <div>RIEPILOGO<br>DEL MESE</div>
       <div><span>Capitale iniziale</span>${eur(t.capitale)}</div>
-      <div><span>Entrate totali</span>${eur(t.entrate)}</div>
-      <div><span>Uscite totali</span>${eur(t.uscite)}</div>
+      <div><span>Entrate reali</span>${eur(t.entrate)}</div>
+      <div><span>Uscite reali</span>${eur(t.uscite)}</div>
+      <div><span>${CASSA_NAME}</span>${eur(t.cassa.saldo)}</div>
       ${t.rows.map(r => `<div><span>${esc(containerName(r.c))}</span>${eur(r.saldo)}</div>`).join("")}
-      <div class="big"><span>Totale capitale</span>${eur(t.saldo)}</div>
+      <div class="big"><span>Patrimonio</span>${eur(t.saldo)}</div>
     </div>
-    <div class="pr-foot">Saldo finale = capitale iniziale + entrate − uscite · stampato il ${new Date().toLocaleDateString("it-IT")}</div>`;
+    <div class="pr-foot">Le entrate dei contenitori sono prelevate dal saldo totale (salvo quelle segnate "est."). Entrate e uscite del riepilogo escludono questi spostamenti interni · stampato il ${new Date().toLocaleDateString("it-IT")}</div>`;
   window.print();
 }
 
@@ -1204,7 +1348,7 @@ document.addEventListener("click", async e => {
       break;
     }
     case "delete-item": {
-      const arr = editableMonth().items[openSheet.id][el.dataset.kind];
+      const arr = boxOf(editableMonth(), openSheet.id)[el.dataset.kind];
       const v = arr.find(x => x.id === el.dataset.id);
       if (!v) return;
       if (await confirmBox("Eliminare la voce?", `"${v.desc}" da ${eur(v.importo)} verrà eliminata.`)) {
@@ -1216,7 +1360,7 @@ document.addEventListener("click", async e => {
     case "form-delete": {
       const { containerId, itemId, getKind } = openSheet.ctx;
       const back = openSheet.back;
-      const arr = editableMonth().items[containerId][getKind()];
+      const arr = boxOf(editableMonth(), containerId)[getKind()];
       const v = arr.find(x => x.id === itemId);
       if (v && await confirmBox("Eliminare la voce?", `"${v.desc}" da ${eur(v.importo)} verrà eliminata.`)) {
         arr.splice(arr.indexOf(v), 1); markEdited(); toast("Voce eliminata"); returnFromForm(back);
@@ -1246,7 +1390,7 @@ document.addEventListener("click", async e => {
       break;
     }
     case "clear-demo": {
-      if (await confirmBox("Iniziare da zero?", "I dati demo verranno eliminati. Restano i contenitori Spese Fisse, Divertimento, Risparmi, Sara e due contenitori senza nome.", "Inizia da zero")) {
+      if (await confirmBox("Iniziare da zero?", "I dati demo verranno eliminati. Restano il saldo totale (a zero) e i contenitori Spese Fisse, Divertimento, Risparmi, Sara e due senza nome.", "Inizia da zero")) {
         const cur = monthKey(new Date());
         const C = [{ id: "spese-fisse", name: "Spese Fisse" }, { id: "divertimento", name: "Divertimento" }, { id: "risparmi", name: "Risparmi" }, { id: "sara", name: "Sara" }, { id: uid(), name: "" }, { id: uid(), name: "" }];
         state = { version: 1, theme: state.theme, demo: false, containers: C, months: {}, current: cur };
@@ -1293,7 +1437,7 @@ document.addEventListener("input", e => {
     }
   }
   if (a === "field") {
-    const it = editableMonth().items[openSheet.id];
+    const it = boxOf(editableMonth(), openSheet.id);
     it[el.dataset.field] = num(el.value);
     save();
     refreshContainerNumbers();
