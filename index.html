@@ -361,6 +361,7 @@ footer.note{text-align:center;color:var(--muted);font-size:12px;margin:28px 0 8p
 
   <!-- ===================== DASHBOARD ===================== -->
   <section class="view active" id="view-dashboard">
+    <div id="installBanner" class="hidden"></div>
     <div id="banners"></div>
 
     <div class="kpis" id="kpis"></div>
@@ -395,6 +396,14 @@ footer.note{text-align:center;color:var(--muted);font-size:12px;margin:28px 0 8p
     <div class="section-title">Contenitori</div>
     <div class="set-group" id="containersSettings"></div>
     <div style="margin-top:10px"><button class="btn ghost block" data-action="add-container">＋ Aggiungi contenitore</button></div>
+
+    <div class="section-title">App sul telefono</div>
+    <div class="set-group">
+      <div class="set-row">
+        <div class="sr-main"><div>Installa Bilancio</div><div class="sr-sub" id="installStatus">Verifica in corso…</div></div>
+        <button class="btn sm primary hidden" data-action="install-app" id="installBtn">📲 Installa</button>
+      </div>
+    </div>
 
     <div class="section-title">Aspetto</div>
     <div class="set-group">
@@ -1251,6 +1260,7 @@ document.addEventListener("click", async e => {
     case "import-json": $("#importFile").click(); break;
     case "export-csv": exportCSV(); break;
     case "print": printMonth(); break;
+    case "install-app": installApp(); break;
     case "delete-month": {
       if (!monthExists(state.current)) return toast("Questo mese non ha dati salvati");
       if (await confirmBox(`Eliminare ${monthLabel(state.current)}?`, "Tutte le entrate e le uscite di questo mese verranno eliminate.")) {
@@ -1307,9 +1317,41 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) saveN
 /* =========================================================
    AVVIO
    ========================================================= */
+/* =========================================================
+   INSTALLAZIONE APP (pulsante dedicato + diagnostica)
+   ========================================================= */
+let installPrompt = null;
+const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+function setInstallUI(){
+  const st = $("#installStatus"), btn = $("#installBtn"), ban = $("#installBanner");
+  if (!st) return;
+  let msg, canInstall = false;
+  if (isStandalone()) msg = "✅ Stai già usando l'app installata.";
+  else if (installPrompt) { msg = "Pronta per l'installazione."; canInstall = true; }
+  else if (!location.protocol.startsWith("http")) msg = "Installabile solo dal link online (GitHub Pages).";
+  else if (/iPhone|iPad|iPod/.test(navigator.userAgent)) msg = "Su iPhone: tasto Condividi → Aggiungi alla schermata Home.";
+  else if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) msg = "Preparazione in corso: ricarica la pagina tra qualche secondo.";
+  else msg = "Chrome non propone l'installazione: probabilmente risulta già installata. Controlla l'elenco app del telefono (cerca “Bilancio”).";
+  st.textContent = msg;
+  btn.classList.toggle("hidden", !canInstall);
+  ban.classList.toggle("hidden", !canInstall);
+  if (canInstall) ban.innerHTML = `<div class="banner"><div>📲</div><div class="b-body"><b>Installa Bilancio sul telefono</b> per aprirla come un'app, anche offline.<div class="b-actions"><button class="btn sm primary" data-action="install-app">Installa app</button></div></div></div>`;
+}
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; setInstallUI(); });
+window.addEventListener("appinstalled", () => { installPrompt = null; setInstallUI(); toast("App installata ✅"); });
+async function installApp(){
+  if (!installPrompt) { setInstallUI(); goView("settings"); return; }
+  installPrompt.prompt();
+  const { outcome } = await installPrompt.userChoice;
+  installPrompt = null;
+  setInstallUI();
+  if (outcome !== "accepted") toast("Installazione annullata");
+}
+
 /* Offline + installazione su smartphone (solo quando servita via https, es. GitHub Pages) */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(() => {}));
+  navigator.serviceWorker.addEventListener("controllerchange", setInstallUI);
 }
 
 state = load();
@@ -1318,6 +1360,7 @@ state = load();
 state.current = monthKey(new Date());
 applyTheme();
 renderAll();
+setInstallUI();
 saveNow();
 </script>
 </body>
